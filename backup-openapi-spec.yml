@@ -1,0 +1,564 @@
+components:
+  schemas:
+    AuthenticationRequest:
+      description: Class AuthenticationRequest
+      properties:
+        password:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        tenant:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        username:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+      type: object
+      x-class-type: AuthenticationRequest
+      x-source-file: src/main/java/hawk/api/AuthenticationRequest.java~~14
+    ExtraAuthenticationRequest:
+      description: Class ExtraAuthenticationRequest
+      properties:
+        loginCode:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        password:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        remember:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        username:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+      type: object
+      x-class-type: ExtraAuthenticationRequest
+      x-source-file: src/main/java/hawk/api/ExtraAuthenticationRequest.java~~14
+    Search:
+      description: Class Search
+      properties:
+        searchText:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+      type: object
+      x-class-type: Search
+      x-source-file: src/main/java/hawk/form/Search.java~~4
+info:
+  title: javaspringvulny-web
+  version: "0.1"
+openapi: 3.0.0
+paths:
+  /:
+    get:
+      operationId: root-GET
+      responses:
+        default:
+          description: Default response
+      x-name: root-GET
+      x-source: src/main/java/hawk/controller/IndexController.java~~10
+    x-name: root
+  /admin:
+    get:
+      operationId: admin-GET
+      responses:
+        default:
+          description: Default response
+      x-name: admin-GET
+      x-source: src/main/java/hawk/controller/AdminController.java~~20
+    x-name: admin
+  /admin/companies:
+    get:
+      operationId: admin_companies-GET
+      responses:
+        default:
+          description: Default response
+      x-name: admin_companies-GET
+      x-source: src/main/java/hawk/controller/AdminController.java~~32
+    x-name: admin_companies
+  /admin/payload/{size}:
+    get:
+      operationId: admin_payload_{size}-GET
+      parameters:
+      - in: path
+        name: size
+        required: true
+        schema:
+          format: int32
+          type: integer
+          x-field-kind: normal
+          x-field-original-type: Integer
+          x-field-type: Integer
+        x-category: path parameter
+        x-code: '@PathVariable("size") Integer size'
+      responses:
+        default:
+          description: Default response
+      x-name: admin_payload_{size}-GET
+      x-source: src/main/java/hawk/controller/PayloadController.java~~30
+    x-name: admin_payload_{size}
+  /admin/payload/stream/{size}:
+    get:
+      operationId: admin_payload_stream_{size}-GET
+      parameters:
+      - in: path
+        name: size
+        required: true
+        schema:
+          format: int32
+          type: integer
+          x-field-kind: normal
+          x-field-original-type: Integer
+          x-field-type: Integer
+        x-category: path parameter
+        x-code: '@PathVariable("size") Integer size'
+      responses:
+        default:
+          description: Default response
+      x-name: admin_payload_stream_{size}-GET
+      x-source: src/main/java/hawk/controller/PayloadController.java~~57
+    x-name: admin_payload_stream_{size}
+  /admin/payloads:
+    get:
+      operationId: admin_payloads-GET
+      responses:
+        default:
+          description: Default response
+      x-name: admin_payloads-GET
+      x-source: src/main/java/hawk/controller/PayloadController.java~~45
+    x-name: admin_payloads
+  /admin/search:
+    get:
+      operationId: admin_search-GET
+      responses:
+        default:
+          description: Default response
+      x-name: admin_search-GET
+      x-source: src/main/java/hawk/controller/AdminController.java~~38
+    post:
+      operationId: admin_search-POST
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Search'
+        required: true
+        x-code: '@ModelAttribute Search search'
+      responses:
+        default:
+          description: Default response
+      x-name: admin_search-POST
+      x-source: src/main/java/hawk/controller/AdminController.java~~46
+    x-name: admin_search
+  /admin/users:
+    get:
+      operationId: admin_users-GET
+      responses:
+        default:
+          description: Default response
+      x-name: admin_users-GET
+      x-source: src/main/java/hawk/controller/AdminController.java~~26
+    x-name: admin_users
+  /api/basic/items/search/:
+    get:
+      operationId: api_basic_items_search-GET
+      responses:
+        default:
+          description: Default response
+      x-name: api_basic_items_search-GET
+      x-source: src/main/java/hawk/api/basic/BasicAuthItemController.java~~23
+    x-name: api_basic_items_search
+  /api/basic/items/search/{text}:
+    get:
+      operationId: api_basic_items_search_{text}-GET
+      parameters:
+      - in: path
+        name: text
+        required: true
+        schema:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        x-category: path parameter
+        x-code: '@PathVariable("text") String text'
+      responses:
+        default:
+          description: Default response
+      x-name: api_basic_items_search_{text}-GET
+      x-source: src/main/java/hawk/api/basic/BasicAuthItemController.java~~29
+    x-name: api_basic_items_search_{text}
+  /api/jwt/auth/signin:
+    post:
+      operationId: api_jwt_auth_signin-POST
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticationRequest'
+        required: true
+        x-code: '@RequestBody AuthenticationRequest data'
+      responses:
+        default:
+          description: Default response
+      x-name: api_jwt_auth_signin-POST
+      x-source: src/main/java/hawk/api/jwt/JwtAuthController.java~~43
+    x-name: api_jwt_auth_signin
+  /api/jwt/items/search:
+    post:
+      operationId: api_jwt_items_search-POST
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Search'
+        required: true
+        x-code: '@RequestBody Search search'
+      responses:
+        default:
+          description: Default response
+      x-name: api_jwt_items_search-POST
+      x-source: src/main/java/hawk/api/jwt/JwtItemController.java~~41
+    x-name: api_jwt_items_search
+  /api/jwt/items/search/:
+    get:
+      operationId: api_jwt_items_search-GET
+      responses:
+        default:
+          description: Default response
+      x-name: api_jwt_items_search-GET
+      x-source: src/main/java/hawk/api/jwt/JwtItemController.java~~28
+    x-name: api_jwt_items_search
+  /api/jwt/items/search/{text}:
+    get:
+      operationId: api_jwt_items_search_{text}-GET
+      parameters:
+      - in: path
+        name: text
+        required: true
+        schema:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        x-category: path parameter
+        x-code: '@PathVariable("text") String text'
+      responses:
+        default:
+          description: Default response
+      x-name: api_jwt_items_search_{text}-GET
+      x-source: src/main/java/hawk/api/jwt/JwtItemController.java~~34
+    x-name: api_jwt_items_search_{text}
+  /api/jwt/users/search/:
+    get:
+      operationId: api_jwt_users_search-GET
+      responses:
+        default:
+          description: Default response
+      x-name: api_jwt_users_search-GET
+      x-source: src/main/java/hawk/api/jwt/JwtUserController.java~~30
+    x-name: api_jwt_users_search
+  /api/jwt/users/search/{text}:
+    get:
+      operationId: api_jwt_users_search_{text}-GET
+      parameters:
+      - in: path
+        name: text
+        required: true
+        schema:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        x-category: path parameter
+        x-code: '@PathVariable("text") String text'
+      responses:
+        default:
+          description: Default response
+      x-name: api_jwt_users_search_{text}-GET
+      x-source: src/main/java/hawk/api/jwt/JwtUserController.java~~36
+    x-name: api_jwt_users_search_{text}
+  /api/jwt/users/search/bad/{text}:
+    get:
+      operationId: api_jwt_users_search_bad_{text}-GET
+      parameters:
+      - in: path
+        name: text
+        required: true
+        schema:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        x-category: path parameter
+        x-code: '@PathVariable("text") String text'
+      responses:
+        default:
+          description: Default response
+      x-name: api_jwt_users_search_bad_{text}-GET
+      x-source: src/main/java/hawk/api/jwt/JwtUserController.java~~42
+    x-name: api_jwt_users_search_bad_{text}
+  /api/token/items/search/:
+    get:
+      operationId: api_token_items_search-GET
+      responses:
+        default:
+          description: Default response
+      x-name: api_token_items_search-GET
+      x-source: src/main/java/hawk/api/token/TokenItemController.java~~23
+    x-name: api_token_items_search
+  /api/token/items/search/{text}:
+    get:
+      operationId: api_token_items_search_{text}-GET
+      parameters:
+      - in: path
+        name: text
+        required: true
+        schema:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        x-category: path parameter
+        x-code: '@PathVariable("text") String text'
+      responses:
+        default:
+          description: Default response
+      x-name: api_token_items_search_{text}-GET
+      x-source: src/main/java/hawk/api/token/TokenItemController.java~~29
+    x-name: api_token_items_search_{text}
+  /basic-auth:
+    get:
+      operationId: basic-auth-GET
+      responses:
+        default:
+          description: Default response
+      x-name: basic-auth-GET
+      x-source: src/main/java/hawk/controller/IndexController.java~~28
+    x-name: basic-auth
+  /hidden:
+    get:
+      operationId: hidden-GET
+      responses:
+        default:
+          description: Default response
+      x-name: hidden-GET
+      x-source: src/main/java/hawk/controller/HiddenController.java~~11
+    x-name: hidden
+  /hidden/cypress:
+    get:
+      operationId: hidden_cypress-GET
+      responses:
+        default:
+          description: Default response
+      x-name: hidden_cypress-GET
+      x-source: src/main/java/hawk/controller/HiddenController.java~~23
+    x-name: hidden_cypress
+  /hidden/hidden2:
+    get:
+      operationId: hidden_hidden2-GET
+      responses:
+        default:
+          description: Default response
+      x-name: hidden_hidden2-GET
+      x-source: src/main/java/hawk/controller/HiddenController.java~~17
+    x-name: hidden_hidden2
+  /hidden/playwright:
+    get:
+      operationId: hidden_playwright-GET
+      responses:
+        default:
+          description: Default response
+      x-name: hidden_playwright-GET
+      x-source: src/main/java/hawk/controller/HiddenController.java~~35
+    x-name: hidden_playwright
+  /hidden/selenium:
+    get:
+      operationId: hidden_selenium-GET
+      responses:
+        default:
+          description: Default response
+      x-name: hidden_selenium-GET
+      x-source: src/main/java/hawk/controller/HiddenController.java~~29
+    x-name: hidden_selenium
+  /jwt-auth:
+    get:
+      operationId: jwt-auth-GET
+      responses:
+        default:
+          description: Default response
+      x-name: jwt-auth-GET
+      x-source: src/main/java/hawk/controller/IndexController.java~~16
+    x-name: jwt-auth
+  /log4j:
+    get:
+      operationId: log4j-GET
+      parameters:
+      - in: query
+        name: text
+        required: true
+        schema:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        x-category: query parameter
+        x-code: '@RequestParam String text'
+      responses:
+        default:
+          description: Default response
+      x-name: log4j-GET
+      x-source: src/main/java/hawk/api/jwt/JwtLog4jController.java~~19
+    x-name: log4j
+  /login:
+    get:
+      operationId: login-GET
+      responses:
+        default:
+          description: Default response
+      x-name: login-GET
+      x-source: src/main/java/hawk/controller/LoginController.java~~44
+    x-name: login
+  /login-code:
+    get:
+      operationId: login-code-GET
+      responses:
+        default:
+          description: Default response
+      x-name: login-code-GET
+      x-source: src/main/java/hawk/controller/LoginController.java~~52
+    x-name: login-code
+  /login-form-multi:
+    get:
+      operationId: login-form-multi-GET
+      responses:
+        default:
+          description: Default response
+      x-name: login-form-multi-GET
+      x-source: src/main/java/hawk/controller/LoginController.java~~61
+    post:
+      operationId: login-form-multi-POST
+      parameters:
+      - in: cookie
+        name: XLOGINID
+        required: true
+        schema:
+          type: string
+          x-field-kind: normal
+          x-field-original-type: String
+          x-field-type: String
+        x-category: cookie parameter
+        x-code: '@CookieValue("XLOGINID") String xLoginId'
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExtraAuthenticationRequest'
+        required: true
+        x-code: '@ModelAttribute ExtraAuthenticationRequest data'
+      responses:
+        default:
+          description: Default response
+      x-name: login-form-multi-POST
+      x-source: src/main/java/hawk/controller/LoginController.java~~74
+    x-name: login-form-multi
+  /payload/{size}:
+    get:
+      operationId: payload_{size}-GET
+      parameters:
+      - in: path
+        name: size
+        required: true
+        schema:
+          format: int32
+          type: integer
+          x-field-kind: normal
+          x-field-original-type: Integer
+          x-field-type: Integer
+        x-category: path parameter
+        x-code: '@PathVariable("size") Integer size'
+      responses:
+        default:
+          description: Default response
+      x-name: payload_{size}-GET
+      x-source: src/main/java/hawk/controller/PayloadController.java~~30
+    x-name: payload_{size}
+  /payload/stream/{size}:
+    get:
+      operationId: payload_stream_{size}-GET
+      parameters:
+      - in: path
+        name: size
+        required: true
+        schema:
+          format: int32
+          type: integer
+          x-field-kind: normal
+          x-field-original-type: Integer
+          x-field-type: Integer
+        x-category: path parameter
+        x-code: '@PathVariable("size") Integer size'
+      responses:
+        default:
+          description: Default response
+      x-name: payload_stream_{size}-GET
+      x-source: src/main/java/hawk/controller/PayloadController.java~~57
+    x-name: payload_stream_{size}
+  /payloads:
+    get:
+      operationId: payloads-GET
+      responses:
+        default:
+          description: Default response
+      x-name: payloads-GET
+      x-source: src/main/java/hawk/controller/PayloadController.java~~45
+    x-name: payloads
+  /search:
+    get:
+      operationId: search-GET
+      responses:
+        default:
+          description: Default response
+      x-name: search-GET
+      x-source: src/main/java/hawk/controller/SearchController.java~~29
+    post:
+      operationId: search-POST
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Search'
+        required: true
+        x-code: '@ModelAttribute Search search'
+      responses:
+        default:
+          description: Default response
+      x-name: search-POST
+      x-source: src/main/java/hawk/controller/SearchController.java~~37
+    x-name: search
+  /token-auth:
+    get:
+      operationId: token-auth-GET
+      responses:
+        default:
+          description: Default response
+      x-name: token-auth-GET
+      x-source: src/main/java/hawk/controller/IndexController.java~~22
+    x-name: token-auth
+servers:
+- description: Default server
+  url: https://localhost:9000
