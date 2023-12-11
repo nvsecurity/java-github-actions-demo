@@ -6,8 +6,10 @@ on:
 
 env:
   NIGHTVISION_TOKEN: ${{ secrets.NIGHTVISION_TOKEN }}
-  NIGHTVISION_TARGET: https://localhost:9000
-  
+  NIGHTVISION_APP: javaspringvulny-web
+  NIGHTVISION_TARGET: javaspringvulny-web
+  NIGHTVISION_AUTH: javaspringvulny-web
+
 jobs:
   test:
     permissions:
@@ -19,17 +21,23 @@ jobs:
       
       - name: (2) Install NightVision
         run: |
-            wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz; sudo mv nightvision /usr/local/bin/
-                    python -m pip install semgrep --user
+          wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz; sudo mv nightvision /usr/local/bin/
+          python -m pip install semgrep --user
 
       - name: (3) Extract API documentation from code
-        run: nightvision swagger-extract ./ -u ${NIGHTVISION_TARGET} --lang spring
+        run: |
+          nightvision swagger extract ./ -t ${NIGHTVISION_TARGET} --lang spring || true
+          if [ ! -e openapi-spec.yml ]; then
+              cp backup-openapi-spec.yml openapi-spec.yml
+          fi
 
       - name: (4) Start the app
         run: docker-compose up -d; sleep 10
 
       - name: (5) Scan the API
-        run: nightvision scan --api ${NIGHTVISION_TARGET} --export-sarif
+        run: |
+          nightvision scan -t ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
+          nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
 
       - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
         uses: github/codeql-action/upload-sarif@v2
