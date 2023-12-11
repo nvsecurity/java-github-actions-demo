@@ -6,9 +6,9 @@ on:
 
 env:
   NIGHTVISION_TOKEN: ${{ secrets.NIGHTVISION_TOKEN }}
-  NIGHTVISION_APP: javaspringvulny-web
-  NIGHTVISION_TARGET: javaspringvulny-web
-  NIGHTVISION_AUTH: javaspringvulny-web
+  NIGHTVISION_APP: javaspringvulny-api
+  NIGHTVISION_TARGET: javaspringvulny-api
+  NIGHTVISION_AUTH: javaspringvulny-api
 
 jobs:
   test:
