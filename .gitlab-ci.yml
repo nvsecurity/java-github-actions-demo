@@ -50,11 +50,9 @@ dast_scan:
   script:
     # "Starting the app"
     - docker-compose up -d
-    - sleep 60
-    # # test connection
-    # - curl -k https://docker:9000
+    - sleep 15
     # "Scanning the API"
-    - nightvision scan -t ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
+    - nightvision scan ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
     - nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
     # "Getting logs"
     - for pod in $(docker ps | grep -v 'CONTAINER ID' | grep -v IMAGE | awk '{print $1}'); do docker logs $pod >> test.pod.logs 2>&1; done
