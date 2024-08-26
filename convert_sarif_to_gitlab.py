@@ -1,7 +1,6 @@
 import json
 from datetime import datetime
 
-
 def sarif_to_gitlab(sarif_file, output_file):
     # Load SARIF data
     with open(sarif_file, 'r') as file:
@@ -36,6 +35,12 @@ def sarif_to_gitlab(sarif_file, output_file):
         }
     }
 
+    # Extract the informationUri link from SARIF data
+    link = ""
+    if "runs" in sarif_data and len(sarif_data["runs"]) > 0:
+        link = sarif_data["runs"][0].get("tool", {}).get("driver", {}).get("informationUri", "")
+    print("Extracted link:", link)
+
     # Map SARIF data to GitLab format
     for run in sarif_data.get("runs", []):
         for result in run.get("results", []):
@@ -47,7 +52,7 @@ def sarif_to_gitlab(sarif_file, output_file):
                 "description": result.get("message", {}).get("text"),
                 "severity": map_severity(result.get("properties", {}).get("nightvision-risk")),  # Mapping function to ensure correct severity
                 "confidence": result.get("properties", {}).get("nightvision-confidence"),
-                "solution": "Please refer to the rule documentation.",
+                "solution": f"For more information, refer to the detailed finding: {link}",
                 "scanner": gitlab_report["scan"]["scanner"],
                 "identifiers": [{"type": "cve", "name": result.get("ruleId"), "value": result.get("ruleId")}],
                 "location": {
