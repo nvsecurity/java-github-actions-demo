@@ -1,0 +1,76 @@
+stages:
+  - sast_scan
+  - dast_scan
+  - convert_sarif_to_gitlab
+
+variables:
+  NIGHTVISION_TARGET: javaspringvulny-api-gitlab
+  NIGHTVISION_APP: javaspringvulny-api-gitlab
+  NIGHTVISION_AUTH: javaspringvulny-api-gitlab
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_DRIVER: overlay2
+  FF_NETWORK_PER_BUILD: "true"     # activate container-to-container networking
+
+services:
+  - docker:dind
+
+sast_scan:
+  stage: sast_scan
+  image: ubuntu:latest
+  services:
+    - docker:dind
+  before_script:
+    - apt-get update && apt-get install -y wget python3-venv python3-docker python3-pip python3 docker-compose curl gcc musl-dev libffi-dev
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip3 install requests urllib3 semgrep
+    - wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz
+    - mv nightvision /usr/local/bin/
+  script:
+    # "Extract API documentation from code"
+    - nightvision swagger extract ./ --lang spring -t ${NIGHTVISION_APP} || true
+    - if [ ! -e openapi-spec.yml ]; then cp backup-openapi-spec.yml openapi-spec.yml; fi
+  artifacts:
+    paths:
+      - openapi-spec.yml
+    expire_in: 30 days
+
+dast_scan:
+  stage: dast_scan
+  image: ubuntu:latest
+  services:
+    - docker:dind
+  before_script:
+    - apt-get update && apt-get install -y wget python3-venv python3-docker python3-pip python3 docker-compose curl gcc musl-dev libffi-dev
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip3 install requests urllib3 semgrep
+    - wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz
+    - mv nightvision /usr/local/bin/
+  script:
+    # "Starting the app"
+    - docker-compose up -d
+    - sleep 15
+    # "Scanning the API"
+    - nightvision scan ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
+    - nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
+    # "Getting logs"
+    - for pod in $(docker ps | grep -v 'CONTAINER ID' | grep -v IMAGE | awk '{print $1}'); do docker logs $pod >> test.pod.logs 2>&1; done
+  artifacts:
+    paths:
+      - test.pod.logs
+      - results.sarif
+    expire_in: 30 days
+  dependencies:
+    - sast_scan
+
+convert_sarif_to_gitlab:
+  stage: convert_sarif_to_gitlab
+  image: python:3.9 
+  script:
+    - python3 convert_sarif_to_gitlab.py
+  artifacts:
+    reports:
+      sast: gitlab_security_report.json
+  dependencies:
+    - dast_scan

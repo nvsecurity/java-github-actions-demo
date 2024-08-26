@@ -1,9 +1,0 @@
-hawk:
-  spider:
-    ajax: true
-    ajaxBrowser: FIREFOX
-  config:
-    - "ajaxSpider.eventWait=20"
-    - "ajaxSpider.reloadWait=70"
-
-

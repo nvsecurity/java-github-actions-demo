@@ -1,7 +1,20 @@
+## SETUP
+
+## Run before activating pipeline
+# nightvision app create -n javaspringvulny-api
+# nightvision target create -n javaspringvulny-api -u https://127.0.0.1:9000 --type api
+# nightvision auth playwright create -n javaspringvulny-api -u https://127.0.0.1:9000
+
+## Optional steps can be preformed locally or in the pipeline
+# nightvision swagger extract ./ -t javaspringvulny-api --lang spring
+# nightvision scan -t javaspringvulny-api -a javaspringvulny-api --auth javaspringvulny-api
+
 name: Test Case - Java Spring App
 
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
 
 env:
@@ -32,11 +45,11 @@ jobs:
           fi
 
       - name: (4) Start the app
-        run: docker-compose up -d; sleep 10
+        run: docker compose up -d; sleep 10
 
       - name: (5) Scan the API
         run: |
-          nightvision scan -t ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
+          nightvision scan ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
           nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
 
       - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
