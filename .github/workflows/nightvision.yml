@@ -45,11 +45,11 @@ jobs:
           fi
 
       - name: (4) Start the app
-        run: docker-compose up -d; sleep 10
+        run: docker compose up -d; sleep 10
 
       - name: (5) Scan the API
         run: |
-          nightvision scan -t ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
+          nightvision scan ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
           nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
 
       - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
