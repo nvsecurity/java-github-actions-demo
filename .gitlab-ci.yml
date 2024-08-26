@@ -31,7 +31,7 @@ test:
     - nightvision swagger extract ./ --lang spring -t ${NIGHTVISION_APP} || true
     - if [ ! -e openapi-spec.yml ]; then cp backup-openapi-spec.yml openapi-spec.yml; fi
     # "Starting the app"
-    - docker compose up -d
+    - docker-compose up -d
     - sleep 15
     # "Scanning the API"
     - nightvision scan ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
