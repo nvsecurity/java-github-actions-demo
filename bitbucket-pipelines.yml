@@ -21,6 +21,6 @@ pipelines:
           - docker-compose up -d
           - sleep 10
           # use host pipeline container for everything else to avoid timeouts
-          - nightvision scan -t javaspringvulny-api -a javaspringvulny-api --auth javaspringvulny-api > scan-results.txt
+          - nightvision scan javaspringvulny-api -a javaspringvulny-api --auth javaspringvulny-api > scan-results.txt
           - nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
          max-time: 30 # Time in minutes
