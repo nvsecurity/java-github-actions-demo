@@ -1,0 +1,66 @@
+name: Test Case - Teams - Java Spring App
+
+on:
+#  push:
+  workflow_dispatch:
+
+env:
+  NIGHTVISION_TOKEN: ${{ secrets.NIGHTVISION_TOKEN }}
+  NIGHTVISION_TARGET: javaspringvulny-api
+  NIGHTVISION_APP: javaspringvulny-api
+  NIGHTVISION_AUTH: javaspringvulny-api
+  TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+  
+jobs:
+  test:
+    permissions:
+      security-events: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: (1) Clone Code
+        uses: actions/checkout@v3
+      
+      - name: (2) Install NightVision
+        run: |
+          wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz
+          sudo mv nightvision /usr/local/bin/
+          python -m pip install semgrep --user
+
+      - name: (3) Extract API documentation from code
+        run: |
+          nightvision swagger extract ./ -t ${{ env.NIGHTVISION_TARGET }} --lang spring || true
+          if [ ! -e openapi-spec.yml ]; then
+              cp backup-openapi-spec.yml openapi-spec.yml
+          fi
+
+      - name: (4) Start the app
+        run: |
+          docker-compose up -d
+          sleep 10
+
+      - name: (5) Scan the API
+        run: |
+          nightvision scan -t ${{ env.NIGHTVISION_TARGET }} -a ${{ env.NIGHTVISION_APP }} --auth ${{ env.NIGHTVISION_AUTH }} > scan-results.txt
+          nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
+
+      - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
+        uses: github/codeql-action/upload-sarif@v2
+        if: success()
+        with:
+          sarif_file: results.sarif
+
+      - name: (7) Install nightvision MSTeams importer and dependencies
+        run: |
+          git clone https://github.com/jxbt/nightvision_ms_teams_importer.git
+          cd nightvision_ms_teams_importer/
+          sudo apt-get update
+          sudo apt-get install -y python3-pip python3-venv
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip3 install -r requirements.txt
+
+      - name: (8) Run NightVision MSTeams Importer
+        run: |
+          cd nightvision_ms_teams_importer
+          source .venv/bin/activate
+          python3 nightvision_teams_importer.py --sarif ../results.sarif --token ${{ env.TEAMS_WEBHOOK_URL }}
