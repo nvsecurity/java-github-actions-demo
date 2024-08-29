@@ -40,7 +40,7 @@ jobs:
 
       - name: (5) Scan the API
         run: |
-          nightvision scan -t ${{ env.NIGHTVISION_TARGET }} -a ${{ env.NIGHTVISION_APP }} --auth ${{ env.NIGHTVISION_AUTH }} > scan-results.txt
+          nightvision scan ${{ env.NIGHTVISION_TARGET }} -a ${{ env.NIGHTVISION_APP }} --auth ${{ env.NIGHTVISION_AUTH }} > scan-results.txt
           nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
 
       - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
