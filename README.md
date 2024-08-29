@@ -1,3 +1,4 @@
 # Java GitHub Actions Demo
 
-A source repository for the GitHub Actions demo of NightVision.
+A source repository for the GitHub Actions demo of NightVision.foobar
+foobar

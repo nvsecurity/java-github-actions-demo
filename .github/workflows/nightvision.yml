@@ -7,7 +7,7 @@
 
 ## Optional steps can be preformed locally or in the pipeline
 # nightvision swagger extract ./ -t javaspringvulny-api --lang spring
-# nightvision scan -t javaspringvulny-api -a javaspringvulny-api --auth javaspringvulny-api
+# nightvision scan javaspringvulny-api -a javaspringvulny-api --auth javaspringvulny-api
 
 name: Test Case - Java Spring App
 
