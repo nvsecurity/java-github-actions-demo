@@ -54,7 +54,7 @@ pipeline {
                 script {
                     sh """
                     
-                    ./nightvision scan -t "${env.NIGHTVISION_TARGET}" -a "${env.NIGHTVISION_APP}" --auth "${env.NIGHTVISION_AUTH}" > scan-results.txt
+                    ./nightvision scan "${env.NIGHTVISION_TARGET}" -a "${env.NIGHTVISION_APP}" --auth "${env.NIGHTVISION_AUTH}" > scan-results.txt
                     ./nightvision export sarif -s \$(head -n 1 scan-results.txt) --swagger-file openapi-spec.yml > results.sarif
                     """
 
