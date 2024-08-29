@@ -46,7 +46,7 @@ stages:
       displayName: 'Start the App'
 
     - script: |
-        nightvision scan -t $NIGHTVISION_TARGET -a $NIGHTVISION_APP --auth $NIGHTVISION_AUTH > scan-results.txt
+        nightvision scan $NIGHTVISION_TARGET -a $NIGHTVISION_APP --auth $NIGHTVISION_AUTH > scan-results.txt
         nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
       displayName: 'Scan the API'
       env:
