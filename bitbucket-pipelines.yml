@@ -1,8 +1,8 @@
 image: docker:stable
 
 # # SETUP STEPS
-# nightvision app create -n javaspringvulny-api
-# nightvision target create -n javaspringvulny-api -u https://localhost:9000 --type api
+# nightvision app create javaspringvulny-api
+# nightvision target create javaspringvulny-api https://localhost:9000 --type api
 # nightvision swagger extract ./ -t javaspringvulny-api --lang spring 
 # nightvision auth playwright create -u https://localhost:9000 -n javaspringvulny-api
 
