@@ -3,7 +3,7 @@
 ## Run before activating pipeline
 # nightvision app create javaspringvulny-api
 # nightvision target create javaspringvulny-api https://127.0.0.1:9000 --type api
-# nightvision auth playwright create javaspringvulny-api -u https://127.0.0.1:9000
+# nightvision auth playwright create javaspringvulny-api https://127.0.0.1:9000
 
 ## Optional steps can be preformed locally or in the pipeline
 # nightvision swagger extract ./ -t javaspringvulny-api --lang spring
