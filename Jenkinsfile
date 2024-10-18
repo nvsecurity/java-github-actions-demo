@@ -4,7 +4,6 @@ pipeline {
     environment {
         NIGHTVISION_TOKEN = credentials('nightvision-token')
         NIGHTVISION_TARGET = 'javaspringvulny-api'
-        NIGHTVISION_APP = 'javaspringvulny-api'
         NIGHTVISION_AUTH = 'javaspringvulny-api'
     }
 
@@ -30,7 +29,7 @@ pipeline {
                 script {
                     sh """
                    
-                    ./nightvision swagger extract ./ -t "${env.NIGHTVISION_TARGET}" --lang spring || true
+                    ./nightvision swagger extract . -t "${env.NIGHTVISION_TARGET}" --lang spring || true
                     if [ ! -e openapi-spec.yml ]; then
                         cp backup-openapi-spec.yml openapi-spec.yml
                     fi
@@ -54,7 +53,7 @@ pipeline {
                 script {
                     sh """
                     
-                    ./nightvision scan "${env.NIGHTVISION_TARGET}" -a "${env.NIGHTVISION_APP}" --auth "${env.NIGHTVISION_AUTH}" > scan-results.txt
+                    ./nightvision scan "${env.NIGHTVISION_TARGET}" --auth "${env.NIGHTVISION_AUTH}" > scan-results.txt
                     ./nightvision export sarif -s \$(head -n 1 scan-results.txt) --swagger-file openapi-spec.yml > results.sarif
                     """
 
