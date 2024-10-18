@@ -1,7 +1,6 @@
 image: docker:stable
 
 # # SETUP STEPS
-# nightvision app create javaspringvulny-api
 # nightvision target create javaspringvulny-api https://localhost:9000 --type api
 # nightvision swagger extract ./ -t javaspringvulny-api --lang spring 
 # nightvision auth playwright create javaspringvulny-api https://localhost:9000 
@@ -16,11 +15,11 @@ pipelines:
           - apk add --no-cache docker-compose curl tar
           - curl -L https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -q | tar -xz && mv nightvision /usr/local/bin/
           # swap to nightvision container for semgrep SAST steps
-          - docker run -v $(pwd):/mnt --env "NIGHTVISION_TOKEN=$NIGHTVISION_TOKEN" alexnightvision/nightvision-cli nightvision swagger extract ./ -t javaspringvulny-api --lang spring 
+          - docker run -v $(pwd):/mnt --env "NIGHTVISION_TOKEN=$NIGHTVISION_TOKEN" alexnightvision/nightvision-cli nightvision swagger extract . -t javaspringvulny-api --lang spring 
           # Wait for containers to fully start
           - docker-compose up -d
           - sleep 10
           # use host pipeline container for everything else to avoid timeouts
-          - nightvision scan javaspringvulny-api -a javaspringvulny-api --auth javaspringvulny-api > scan-results.txt
+          - nightvision scan javaspringvulny-api --auth javaspringvulny-api > scan-results.txt
           - nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
          max-time: 30 # Time in minutes
