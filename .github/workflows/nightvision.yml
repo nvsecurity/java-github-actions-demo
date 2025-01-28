@@ -20,7 +20,6 @@ on:
 env:
   NIGHTVISION_TOKEN: ${{ secrets.NIGHTVISION_TOKEN }}
   NIGHTVISION_TARGET: javaspringvulny-api
-  NIGHTVISION_APP: javaspringvulny-api
   NIGHTVISION_AUTH: javaspringvulny-api
   
 jobs:
@@ -49,7 +48,7 @@ jobs:
 
       - name: (5) Scan the API
         run: |
-          nightvision scan ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
+          nightvision scan ${NIGHTVISION_TARGET} --auth ${NIGHTVISION_AUTH} > scan-results.txt
           nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
 
       - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
