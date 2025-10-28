@@ -52,7 +52,7 @@ jobs:
           nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
 
       - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: success()
         with:
           sarif_file: results.sarif
