@@ -23,7 +23,6 @@ on:
       - '**/*.md'
       - '.gitignore'
       - '.gitlab-ci.yml'
-      - 'convert_sarif_to_gitlab.py'
       - 'azure-pipelines.yml'
       - 'sarif_to_azure_devops.py'
       - 'bitbucket-pipelines.yml'
