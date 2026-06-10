@@ -34,6 +34,9 @@ env:
   NIGHTVISION_TOKEN: ${{ secrets.NIGHTVISION_TOKEN }}
   NIGHTVISION_TARGET: javaspringvulny
   NIGHTVISION_AUTH: javaspringvulny
+  # Optional: a Slack Incoming Webhook URL. When set, step (7) posts a scan
+  # summary; when unset, that step is skipped and the scan still runs and uploads.
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
   
 jobs:
   test:
@@ -89,3 +92,26 @@ jobs:
         if: success()
         with:
           sarif_file: results.sarif
+
+      # Post a one-line scan summary to a Slack Incoming Webhook. Runs on both success
+      # and failure (always()), skipped when SLACK_WEBHOOK_URL is not set. Best-effort:
+      # a webhook POST failure prints a warning but does not fail the run (the scan and
+      # SARIF upload have already succeeded). jq builds the JSON payload so the message
+      # text is escaped safely.
+      - name: (7) Post scan summary to Slack
+        if: ${{ always() && env.SLACK_WEBHOOK_URL != '' }}
+        run: |
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ "${{ job.status }}" = "success" ] && [ -f results.sarif ]; then
+            total=$(jq '[.runs[].results[]] | length' results.sarif)
+            crit=$(jq '[.runs[].results[] | select(.properties["nightvision-risk"] == "CRITICAL")] | length' results.sarif)
+            high=$(jq '[.runs[].results[] | select(.properties["nightvision-risk"] == "HIGH")] | length' results.sarif)
+            findings_url="${{ github.server_url }}/${{ github.repository }}/security/code-scanning"
+            text="NightVision scan of ${NIGHTVISION_TARGET} in ${{ github.repository }} succeeded: ${total} findings (${crit} critical, ${high} high). <${findings_url}|Findings> | <${run_url}|Run>"
+          else
+            text="NightVision scan of ${NIGHTVISION_TARGET} in ${{ github.repository }} did not complete (status ${{ job.status }}). <${run_url}|Run>"
+          fi
+          curl -sSf -X POST -H 'Content-type: application/json' \
+            --data "$(jq -n --arg t "$text" '{text: $t, unfurl_links: false, unfurl_media: false}')" \
+            "$SLACK_WEBHOOK_URL" \
+            || echo "::warning::Slack notification failed; continuing (scan result unaffected)."
