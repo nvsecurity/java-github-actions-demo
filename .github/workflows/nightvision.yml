@@ -15,6 +15,22 @@ on:
   push:
     branches:
       - main
+    # Do not run the DAST scan when a push touches only files that cannot affect the
+    # scanned app or the scan itself: docs, other-platform CI glue, and the manual-only
+    # sibling notification workflows. App source, specs, Dockerfile/compose, build files,
+    # scan config, and this workflow still trigger a scan. (NV-4462.)
+    paths-ignore:
+      - '**/*.md'
+      - '.gitignore'
+      - '.gitlab-ci.yml'
+      - 'convert_sarif_to_gitlab.py'
+      - 'azure-pipelines.yml'
+      - 'sarif_to_azure_devops.py'
+      - 'bitbucket-pipelines.yml'
+      - 'Jenkinsfile'
+      - '.github/workflows/nightvision-email.yml'
+      - '.github/workflows/nightvision-slack.yml'
+      - '.github/workflows/nightvision-teams.yml'
   workflow_dispatch:
 
 env:
@@ -36,15 +52,29 @@ jobs:
             wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz; sudo mv nightvision /usr/local/bin/
                     python -m pip install semgrep --user
 
+      # Extract the spec to a local file and assert it is non-empty. The '|| true' mask
+      # and the backup-spec fallback are dropped so a real API Discovery regression turns
+      # the run red instead of silently scanning with a stale spec. (NV-4462.)
       - name: (3) Extract API documentation from code
         run: |
-          nightvision swagger extract ./ -t ${NIGHTVISION_TARGET} --lang spring || true
-          if [ ! -e openapi-spec.yml ]; then
-              cp backup-openapi-spec.yml openapi-spec.yml
-          fi
+          nightvision swagger extract ./ --lang spring -o openapi-spec.yml --no-upload
+          test -s openapi-spec.yml
 
-      - name: (4) Start the app
-        run: docker compose up -d; sleep 10
+      # Spring Boot + Postgres cold start (after the Gradle image build) routinely
+      # exceeds a fixed sleep, and compose's depends_on waits only for container start,
+      # not for the app to accept connections. Poll until it responds (any HTTP status
+      # means it is listening) instead of sleeping a flat 10s; on timeout, dump logs and
+      # fail loudly rather than letting the scan flake later. --retry-max-time caps the
+      # whole loop (~150s) so a listening-but-hung port fails fast instead of burning
+      # --max-time on every one of --retry attempts. (NV-4462.)
+      - name: (4) Start the app and wait until it is ready
+        run: |
+          docker compose up -d
+          if ! curl -sk --retry 60 --retry-delay 2 --retry-max-time 150 --retry-all-errors --max-time 5 -o /dev/null https://127.0.0.1:9000/; then
+            echo "App did not become ready in time; recent compose logs:"
+            docker compose logs --no-color --tail 200
+            exit 1
+          fi
 
       - name: (5) Scan the API
         run: |

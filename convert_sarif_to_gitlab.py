@@ -1,3 +1,7 @@
+# SUPERSEDED: the GitLab pipeline (.gitlab-ci.yml) now fetches the single canonical
+# converter from nvsecurity/nv-public-reference at runtime, so this in-repo copy is no
+# longer used by CI. Kept only to avoid a noisy delete on this POC branch; removal is
+# tracked under NV-4412. Do not edit this copy - change the canonical converter.
 import json
 from datetime import datetime
 

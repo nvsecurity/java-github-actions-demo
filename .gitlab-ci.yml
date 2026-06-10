@@ -66,8 +66,18 @@ dast_scan:
 
 convert_sarif_to_gitlab:
   stage: convert_sarif_to_gitlab
-  image: python:3.9 
+  image: python:3.9
   script:
+    # Fetch the converter from its single canonical location so this pipeline is
+    # self-contained: a repo that copy-pastes only this YAML (without bundling the
+    # Python script) still produces the report on this final stage. (NV-4418.)
+    # -f makes curl fail loudly on an HTTP error so a missing/moved converter does not
+    # silently produce an empty report.
+    # POC limitation: this pins to the mutable 'main' branch (no tag/SHA or checksum),
+    # so a converter change is picked up automatically. Pin to a tag/commit SHA before
+    # promoting this pattern past the POC.
+    # Phase 1 (NV-4412) replaces this fetch + script with `nightvision export gitlab`.
+    - curl -sSfL https://raw.githubusercontent.com/nvsecurity/nv-public-reference/main/sarif/convert_sarif_to_gitlab.py -o convert_sarif_to_gitlab.py
     - python3 convert_sarif_to_gitlab.py
   artifacts:
     reports:
