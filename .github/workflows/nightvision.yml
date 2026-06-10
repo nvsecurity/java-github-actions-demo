@@ -16,9 +16,9 @@ on:
     branches:
       - main
     # Do not run the DAST scan when a push touches only files that cannot affect the
-    # scanned app or the scan itself: docs, other-platform CI glue, and the manual-only
-    # sibling notification workflows. App source, specs, Dockerfile/compose, build files,
-    # scan config, and this workflow still trigger a scan. (NV-4462.)
+    # scanned app or the scan itself: docs and other-platform CI glue. App source, specs,
+    # Dockerfile/compose, build files, scan config, and this workflow still trigger a
+    # scan. (NV-4462.)
     paths-ignore:
       - '**/*.md'
       - '.gitignore'
@@ -29,9 +29,6 @@ on:
       - 'bitbucket-pipelines.yml'
       - 'Jenkinsfile'
       - '.github/dependabot.yml'
-      - '.github/workflows/nightvision-email.yml'
-      - '.github/workflows/nightvision-slack.yml'
-      - '.github/workflows/nightvision-teams.yml'
   workflow_dispatch:
 
 env:
