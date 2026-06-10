@@ -28,6 +28,7 @@ on:
       - 'sarif_to_azure_devops.py'
       - 'bitbucket-pipelines.yml'
       - 'Jenkinsfile'
+      - '.github/dependabot.yml'
       - '.github/workflows/nightvision-email.yml'
       - '.github/workflows/nightvision-slack.yml'
       - '.github/workflows/nightvision-teams.yml'

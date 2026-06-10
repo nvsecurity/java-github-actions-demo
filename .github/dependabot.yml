@@ -1,0 +1,11 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Wait 7 days after a release is published before opening an update PR,
+    # so freshly published (potentially compromised) versions are not pinned
+    # immediately. Keeps the SHA pins refreshed as reviewable PRs.
+    cooldown:
+      default-days: 7
