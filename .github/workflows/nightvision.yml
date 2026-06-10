@@ -47,7 +47,6 @@ jobs:
       - name: (2) Install NightVision
         run: |
             wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz; sudo mv nightvision /usr/local/bin/
-                    python -m pip install semgrep --user
 
       # Extract the spec to a local file and assert it is non-empty. The '|| true' mask
       # and the backup-spec fallback are dropped so a real API Discovery regression turns
