@@ -16,27 +16,27 @@ on:
     branches:
       - main
     # Do not run the DAST scan when a push touches only files that cannot affect the
-    # scanned app or the scan itself: docs, other-platform CI glue, and the manual-only
-    # sibling notification workflows. App source, specs, Dockerfile/compose, build files,
-    # scan config, and this workflow still trigger a scan. (NV-4462.)
+    # scanned app or the scan itself: docs and other-platform CI glue. App source, specs,
+    # Dockerfile/compose, build files, scan config, and this workflow still trigger a
+    # scan. (NV-4462.)
     paths-ignore:
       - '**/*.md'
       - '.gitignore'
       - '.gitlab-ci.yml'
-      - 'convert_sarif_to_gitlab.py'
       - 'azure-pipelines.yml'
       - 'sarif_to_azure_devops.py'
       - 'bitbucket-pipelines.yml'
       - 'Jenkinsfile'
-      - '.github/workflows/nightvision-email.yml'
-      - '.github/workflows/nightvision-slack.yml'
-      - '.github/workflows/nightvision-teams.yml'
+      - '.github/dependabot.yml'
   workflow_dispatch:
 
 env:
   NIGHTVISION_TOKEN: ${{ secrets.NIGHTVISION_TOKEN }}
   NIGHTVISION_TARGET: javaspringvulny
   NIGHTVISION_AUTH: javaspringvulny
+  # Optional: a Slack Incoming Webhook URL. When set, step (7) posts a scan
+  # summary; when unset, that step is skipped and the scan still runs and uploads.
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
   
 jobs:
   test:
@@ -45,12 +45,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: (1) Clone Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       
       - name: (2) Install NightVision
         run: |
             wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz; sudo mv nightvision /usr/local/bin/
-                    python -m pip install semgrep --user
 
       # Extract the spec to a local file and assert it is non-empty. The '|| true' mask
       # and the backup-spec fallback are dropped so a real API Discovery regression turns
@@ -89,7 +88,30 @@ jobs:
           nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
 
       - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         if: success()
         with:
           sarif_file: results.sarif
+
+      # Post a one-line scan summary to a Slack Incoming Webhook. Runs on both success
+      # and failure (always()), skipped when SLACK_WEBHOOK_URL is not set. Best-effort:
+      # a webhook POST failure prints a warning but does not fail the run (the scan and
+      # SARIF upload have already succeeded). jq builds the JSON payload so the message
+      # text is escaped safely.
+      - name: (7) Post scan summary to Slack
+        if: ${{ always() && env.SLACK_WEBHOOK_URL != '' }}
+        run: |
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ "${{ job.status }}" = "success" ] && [ -f results.sarif ]; then
+            total=$(jq '[.runs[].results[]] | length' results.sarif)
+            crit=$(jq '[.runs[].results[] | select(.properties["nightvision-risk"] == "CRITICAL")] | length' results.sarif)
+            high=$(jq '[.runs[].results[] | select(.properties["nightvision-risk"] == "HIGH")] | length' results.sarif)
+            findings_url="${{ github.server_url }}/${{ github.repository }}/security/code-scanning"
+            text="NightVision scan of ${NIGHTVISION_TARGET} in ${{ github.repository }} succeeded: ${total} findings (${crit} critical, ${high} high). <${findings_url}|Findings> | <${run_url}|Run>"
+          else
+            text="NightVision scan of ${NIGHTVISION_TARGET} in ${{ github.repository }} did not complete (status ${{ job.status }}). <${run_url}|Run>"
+          fi
+          curl -sSf -X POST -H 'Content-type: application/json' \
+            --data "$(jq -n --arg t "$text" '{text: $t, unfurl_links: false, unfurl_media: false}')" \
+            "$SLACK_WEBHOOK_URL" \
+            || echo "::warning::Slack notification failed; continuing (scan result unaffected)."
