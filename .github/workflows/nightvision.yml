@@ -78,7 +78,14 @@ jobs:
 
       - name: (5) Scan the API
         run: |
-          nightvision scan ${NIGHTVISION_TARGET} --auth ${NIGHTVISION_AUTH} > scan-results.txt
+          # stdout is redirected to scan-results.txt (its first line feeds the export
+          # below), which also swallows any scan error. Print the captured output and
+          # fail explicitly so a scan failure is diagnosable instead of opaque. (NV-4462.)
+          if ! nightvision scan ${NIGHTVISION_TARGET} --auth ${NIGHTVISION_AUTH} > scan-results.txt; then
+            echo "nightvision scan failed; captured output:"
+            cat scan-results.txt
+            exit 1
+          fi
           nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
 
       - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
