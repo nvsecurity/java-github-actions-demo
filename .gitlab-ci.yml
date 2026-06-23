@@ -1,86 +1,95 @@
+# NightVision DAST in GitLab CI.
+#
+# Extracts an OpenAPI spec from the Spring source, runs an authenticated DAST scan,
+# and emits a GitLab DAST report directly with the NightVision CLI's native
+# `nightvision export gitlab` command. No external converter and no Python toolchain:
+# the report is produced by the CLI and uploaded as a GitLab `dast` report.
+#
+# Requires a masked CI/CD variable NIGHTVISION_TOKEN (the demo setup script sets it).
+
 stages:
-  - sast_scan
-  - dast_scan
-  - convert_sarif_to_gitlab
+  - extract
+  - scan
 
 variables:
   NIGHTVISION_TARGET: javaspringvulny-api-gitlab
   NIGHTVISION_APP: javaspringvulny-api-gitlab
   NIGHTVISION_AUTH: javaspringvulny-api-gitlab
-  DOCKER_HOST: tcp://docker:2375/
+  # Secure docker-in-docker: TLS on 2376 with generated client certs, not the
+  # unauthenticated tcp://docker:2375 socket.
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_TLS_VERIFY: "1"
+  DOCKER_CERT_PATH: "/certs/client"
   DOCKER_DRIVER: overlay2
-  FF_NETWORK_PER_BUILD: "true"     # activate container-to-container networking
+  FF_NETWORK_PER_BUILD: "true"   # container-to-container networking for the scan
 
-services:
-  - docker:dind
+# Run the full DAST scan only on the default branch or a manual ("Run pipeline")
+# trigger, so routine feature pushes do not each launch a scan.
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
 
-sast_scan:
-  stage: sast_scan
+extract_spec:
+  stage: extract
   image: ubuntu:latest
-  services:
-    - docker:dind
   before_script:
-    - apt-get update && apt-get install -y wget python3-venv python3-docker python3-pip python3 docker-compose curl gcc musl-dev libffi-dev
-    - python3 -m venv venv
-    - source venv/bin/activate
-    - pip3 install requests urllib3 semgrep
+    - apt-get update && apt-get install -y wget ca-certificates
     - wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz
     - mv nightvision /usr/local/bin/
   script:
-    # "Extract API documentation from code"
-    - nightvision swagger extract ./ --lang spring -t ${NIGHTVISION_APP} || true
-    - if [ ! -e openapi-spec.yml ]; then cp backup-openapi-spec.yml openapi-spec.yml; fi
+    # Extract the OpenAPI spec from the source. On failure, fall back to the
+    # committed backup spec but log loudly so a real extraction failure is visible
+    # (it is not silently masked the way `|| true` did).
+    - |
+      if nightvision swagger extract ./ --lang spring -t "${NIGHTVISION_APP}"; then
+        echo "Spec extracted from source."
+      else
+        echo "WARNING: 'nightvision swagger extract' failed; using committed backup-openapi-spec.yml." >&2
+        cp backup-openapi-spec.yml openapi-spec.yml
+      fi
+      # Guard on the artifact as well: a zero exit that wrote no spec (e.g. no
+      # routes extracted) still falls back to the committed backup.
+      [ -s openapi-spec.yml ] || cp backup-openapi-spec.yml openapi-spec.yml
   artifacts:
     paths:
       - openapi-spec.yml
     expire_in: 30 days
 
 dast_scan:
-  stage: dast_scan
+  stage: scan
   image: ubuntu:latest
   services:
     - docker:dind
   before_script:
-    - apt-get update && apt-get install -y wget python3-venv python3-docker python3-pip python3 docker-compose curl gcc musl-dev libffi-dev
-    - python3 -m venv venv
-    - source venv/bin/activate
-    - pip3 install requests urllib3 semgrep
+    - apt-get update && apt-get install -y wget ca-certificates docker.io docker-compose
     - wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz
     - mv nightvision /usr/local/bin/
   script:
-    # "Starting the app"
+    # Fail the job on a scan error even though the scan output is piped to tee:
+    # without pipefail the pipeline's exit status would be tee's (always 0).
+    - set -o pipefail
+    # Start the target application.
     - docker-compose up -d
     - sleep 15
-    # "Scanning the API"
-    - nightvision scan ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} --auth ${NIGHTVISION_AUTH} > scan-results.txt
-    - nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
-    # "Getting logs"
-    - for pod in $(docker ps | grep -v 'CONTAINER ID' | grep -v IMAGE | awk '{print $1}'); do docker logs $pod >> test.pod.logs 2>&1; done
-  artifacts:
-    paths:
-      - test.pod.logs
-      - results.sarif
-    expire_in: 30 days
-  dependencies:
-    - sast_scan
-
-convert_sarif_to_gitlab:
-  stage: convert_sarif_to_gitlab
-  image: python:3.9
-  script:
-    # Fetch the converter from its single canonical location so this pipeline is
-    # self-contained: a repo that copy-pastes only this YAML (without bundling the
-    # Python script) still produces the report on this final stage. (NV-4418.)
-    # -f makes curl fail loudly on an HTTP error so a missing/moved converter does not
-    # silently produce an empty report.
-    # POC limitation: this pins to the mutable 'main' branch (no tag/SHA or checksum),
-    # so a converter change is picked up automatically. Pin to a tag/commit SHA before
-    # promoting this pattern past the POC.
-    # Phase 1 (NV-4412) replaces this fetch + script with `nightvision export gitlab`.
-    - curl -sSfL https://raw.githubusercontent.com/nvsecurity/nv-public-reference/main/sarif/convert_sarif_to_gitlab.py -o convert_sarif_to_gitlab.py
-    - python3 convert_sarif_to_gitlab.py
+    # Run the scan and capture its id robustly: extract the scan UUID from the
+    # output (rather than assuming it is the first line) and fail loudly if none
+    # is produced, instead of feeding an empty -s to the export.
+    - nightvision scan "${NIGHTVISION_TARGET}" -a "${NIGHTVISION_APP}" --auth "${NIGHTVISION_AUTH}" | tee scan-results.txt
+    - SCAN_ID=$(grep -oiE '[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}' scan-results.txt | head -n1)
+    - 'test -n "${SCAN_ID}" || { echo "ERROR no scan id found in scan output" >&2; exit 1; }'
+    # Native GitLab DAST report (replaces the former fetch-and-run Python converter).
+    - nightvision export gitlab -s "${SCAN_ID}" --swagger-file openapi-spec.yml -o gl-dast-report.json
+  after_script:
+    # Best-effort container logs for debugging; never fail the job on log capture.
+    - for pod in $(docker ps -q); do docker logs "$pod" >> test.pod.logs 2>&1 || true; done
   artifacts:
     reports:
-      sast: gitlab_security_report.json
+      dast: gl-dast-report.json
+    paths:
+      - gl-dast-report.json
+      - test.pod.logs
+    expire_in: 30 days
   dependencies:
-    - dast_scan
+    - extract_spec
