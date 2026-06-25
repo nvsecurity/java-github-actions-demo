@@ -7,7 +7,7 @@
 
 ## Optional steps can be preformed locally or in the pipeline
 # nightvision swagger extract ./ -t javaspringvulny-api --lang spring
-# nightvision scan javaspringvulny-api -a javaspringvulny-api
+# nightvision scan javaspringvulny-api --auth javaspringvulny-api
 
 trigger:
 - main
@@ -53,7 +53,7 @@ stages:
       displayName: 'Start the App'
 
     - script: |
-        nightvision scan $NIGHTVISION_TARGET -a $NIGHTVISION_APP --auth $NIGHTVISION_AUTH > scan-results.txt
+        nightvision scan $NIGHTVISION_TARGET --auth $NIGHTVISION_AUTH > scan-results.txt
         nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
       displayName: 'Scan the API'
       env:
