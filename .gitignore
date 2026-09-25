@@ -9,3 +9,19 @@ bin/
 .env
 .DS_Store
 __pycache__
+
+# Local agent config and work products
+/.agent-sandbox-config/
+/.claude-sandbox-config/
+/.codex-sandbox-config/
+# Session-local Claude Code state (keep /.claude/skills/ tracked).
+/.claude/settings.local.json
+/.claude/*.lock
+/.claude/scheduled_tasks.lock
+/.claude/todos/
+/.claude/history.jsonl
+/analysis/
+# Scratch files an agent leaves at the repository root. Rooted so a legitimate
+# file of the same name deeper in the tree is unaffected.
+/prompt.txt
+/session-*.txt.gz
