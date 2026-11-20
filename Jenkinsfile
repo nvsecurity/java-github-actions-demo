@@ -2,79 +2,55 @@ pipeline {
     agent any
 
     environment {
-        NIGHTVISION_TOKEN = credentials('nightvision-token')
-        NIGHTVISION_TARGET = 'javaspringvulny-api'
-        NIGHTVISION_AUTH = 'javaspringvulny-api'
+        NIGHTVISION_TOKEN   = credentials('nightvision-token')
+        NIGHTVISION_TARGET  = 'javaspringvulny-api'
+        NIGHTVISION_PROJECT = 'my-project'
+        NIGHTVISION_AUTH    = 'javaspringvulny-api'
     }
 
     stages {
-        stage('Clone Code') {
+        stage('Check out the code') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Install NightVision') {
+        stage('Install the NightVision CLI') {
             steps {
-                script {
-                    sh 'wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz'
-                    
-                    sh 'python3 -m pip install --break-system-packages semgrep'
-                }
+                sh 'curl -L https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -q | tar -xz'
             }
         }
 
-        stage('Extract API Documentation from Code') {
+        stage('Extract the API specification') {
             steps {
-                script {
-                    sh """
-                   
-                    ./nightvision swagger extract . -t "${env.NIGHTVISION_TARGET}" --lang spring || true
-                    if [ ! -e openapi-spec.yml ]; then
-                        cp backup-openapi-spec.yml openapi-spec.yml
-                    fi
-                    """
-                }
+                sh './nightvision openapi extract . --target "$NIGHTVISION_TARGET" --project "$NIGHTVISION_PROJECT" --lang java'
             }
         }
 
-
-
-        stage('Start the App') {
+        stage('Start the application') {
             steps {
-                script {
-                    sh 'docker compose up -d; sleep 10'
-                }
+                sh 'docker compose up -d; sleep 15'
             }
         }
 
         stage('Scan the API') {
             steps {
-                script {
-                    sh """
-                    
-                    ./nightvision scan "${env.NIGHTVISION_TARGET}" --auth "${env.NIGHTVISION_AUTH}" > scan-results.txt
-                    ./nightvision export sarif -s \$(head -n 1 scan-results.txt) --swagger-file openapi-spec.yml > results.sarif
-                    """
-
-                }
+                sh '''
+                    ./nightvision scan "$NIGHTVISION_TARGET" --project "$NIGHTVISION_PROJECT" --auth "$NIGHTVISION_AUTH" > scan-results.txt
+                    ./nightvision export sarif -s "$(head -n 1 scan-results.txt)" --openapi-file openapi-spec.yml
+                '''
             }
         }
 
-        stage('Upload SARIF file to Jenkins using Warnings Plugin') {
+        stage('Publish the findings') {
             steps {
-                script {
-                    // ensure the file exists and then publish it using the Warnings Next Generation Plugin
-                    sh 'test -f results.sarif'
-                    recordIssues tool: sarif(pattern: 'results.sarif')
-                }
+                recordIssues tool: sarif(pattern: 'results.sarif')
             }
         }
     }
 
     post {
         always {
-            // cleanup
             sh 'docker compose down'
         }
     }
