@@ -1,90 +1,40 @@
-## SETUP
-
-## Run before activating pipeline
-# nightvision app create javaspringvulny-api
-# nightvision target create javaspringvulny-api https://127.0.0.1:9000 --type api
-# nightvision auth playwright create javaspringvulny-api https://127.0.0.1:9000
-
-## Optional steps can be preformed locally or in the pipeline
-# nightvision swagger extract ./ -t javaspringvulny-api --lang spring
-# nightvision scan javaspringvulny-api --auth javaspringvulny-api
-
 trigger:
-- main
+  - main
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: ubuntu-latest
 
-stages:
-- stage: Test
-  jobs:
-  - job: BuildAndTest
-    steps:
-    - checkout: self
-      displayName: 'Clone Code'
+variables:
+  NIGHTVISION_TARGET: javaspringvulny-api
+  NIGHTVISION_PROJECT: my-project
+  NIGHTVISION_AUTH: javaspringvulny-api
+  TARGET_URL: https://localhost:9000
 
-    - script: |
-        wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz
-        sudo mv nightvision /usr/local/bin/
-        python -m pip install semgrep --user
-      displayName: 'Install NightVision'
+steps:
+  - checkout: self
 
-    - script: |
-        nightvision swagger extract ./ -t $NIGHTVISION_TARGET --lang spring || true
-        if [ ! -e openapi-spec.yml ]; then
-          cp backup-openapi-spec.yml openapi-spec.yml
-        fi
-      displayName: 'Extract API Documentation from Code'
-      env:
-        NIGHTVISION_TOKEN: $(NIGHTVISION_TOKEN)
-        NIGHTVISION_TARGET: javaspringvulny-api
-  
-      # Install Docker Compose
-    - script: |
-        sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-        docker-compose --version
-      displayName: 'Install Docker Compose'
+  - script: |
+      curl -L https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -q | tar -xz
+      sudo mv nightvision /usr/local/bin/
+    displayName: Install the NightVision CLI
 
-    - script: |
-        docker-compose up -d
-        sleep 20
-        curl -k https://localhost:9000
-      displayName: 'Start the App'
+  - script: nightvision openapi extract . --target "$NIGHTVISION_TARGET" --project "$NIGHTVISION_PROJECT" --lang java
+    displayName: Extract the API specification from the code
+    env:
+      NIGHTVISION_TOKEN: $(NIGHTVISION_TOKEN)
 
-    - script: |
-        nightvision scan $NIGHTVISION_TARGET --auth $NIGHTVISION_AUTH > scan-results.txt
-        nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
-      displayName: 'Scan the API'
-      env:
-        NIGHTVISION_TOKEN: $(NIGHTVISION_TOKEN)
-        NIGHTVISION_TARGET: javaspringvulny-api
-        NIGHTVISION_APP: javaspringvulny-api
-        NIGHTVISION_AUTH: javaspringvulny-api
+  - script: |
+      docker compose up -d
+      curl --retry 30 --retry-all-errors --retry-delay 2 --fail -k -s -o /dev/null "$TARGET_URL"
+    displayName: Start the application
 
-    # Convert SARIF to Azure DevOps logging commands
-    - script: |
-        wget -O sarif_to_azure_devops.py https://gist.githubusercontent.com/alex-nightvision/d2b0813e051d98f623ec8ad3d20df2e8/raw/b6b4d69188c9aa94f0c3993296ba25de553e986d/sarif_to_azure_devops.py
-        python sarif_to_azure_devops.py
-      displayName: 'Convert SARIF to Azure DevOps Logging Commands'
-      env:
-        PYTHONUNBUFFERED: 1
+  - script: |
+      nightvision scan "$NIGHTVISION_TARGET" --project "$NIGHTVISION_PROJECT" --auth "$NIGHTVISION_AUTH" > scan-results.txt
+      nightvision export sarif -s "$(head -n 1 scan-results.txt)" --openapi-file openapi-spec.yml
+    displayName: Scan the API
+    env:
+      NIGHTVISION_TOKEN: $(NIGHTVISION_TOKEN)
 
-    # Download and prepare nightvision_azure_importer script
-    - script: |
-        wget -O nightvision_azure_importer.py https://raw.githubusercontent.com/jxbt/nightvision_azure_importer/main/nightvision_azure_importer.py
-        wget -O nightvision_azure_importer_requirements.txt https://raw.githubusercontent.com/jxbt/nightvision_azure_importer/main/requirements.txt
-        sudo apt-get update
-        sudo apt-get install -y python3-pip
-        python3 -m pip install -r nightvision_azure_importer_requirements.txt
-      displayName: 'Prepare Python Script and Dependencies'
-
-    # Execute the Python script to import SARIF into Azure DevOps work items
-    - script: |
-        python3 nightvision_azure_importer.py --organization $organization --project $project --patoken $pa_token --sarif results.sarif
-      displayName: 'Import SARIF to Azure DevOps'
-      env:
-        organization: "nightvision1"
-        project: "java-test"
-        pa_token: $(PERSONAL_ACCESS_TOKEN)
-
+  - publish: results.sarif
+    artifact: CodeAnalysisLogs
+    displayName: Publish the SARIF results

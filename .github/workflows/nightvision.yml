@@ -1,117 +1,44 @@
-## SETUP
-
-## Run before activating pipeline
-# nightvision app create javaspringvulny
-# nightvision target create javaspringvulny https://127.0.0.1:9000 --type api
-# nightvision auth playwright create javaspringvulny https://127.0.0.1:9000
-
-## Optional steps can be preformed locally or in the pipeline
-# nightvision swagger extract ./ -t javaspringvulny --lang spring
-# nightvision scan javaspringvulny -a javaspringvulny --auth javaspringvulny
-
-name: Test Case - Java Spring App
+name: NightVision scan
 
 on:
   push:
-    branches:
-      - main
-    # Do not run the DAST scan when a push touches only files that cannot affect the
-    # scanned app or the scan itself: docs and other-platform CI glue. App source, specs,
-    # Dockerfile/compose, build files, scan config, and this workflow still trigger a
-    # scan. (NV-4462.)
-    paths-ignore:
-      - '**/*.md'
-      - '.gitignore'
-      - '.gitlab-ci.yml'
-      - 'azure-pipelines.yml'
-      - 'sarif_to_azure_devops.py'
-      - 'bitbucket-pipelines.yml'
-      - 'Jenkinsfile'
-      - '.github/dependabot.yml'
   workflow_dispatch:
 
 env:
   NIGHTVISION_TOKEN: ${{ secrets.NIGHTVISION_TOKEN }}
-  NIGHTVISION_TARGET: javaspringvulny
-  NIGHTVISION_AUTH: javaspringvulny
-  # Optional: a Slack Incoming Webhook URL. When set, step (7) posts a scan
-  # summary; when unset, that step is skipped and the scan still runs and uploads.
-  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-  
+  NIGHTVISION_TARGET: javaspringvulny-api
+  NIGHTVISION_PROJECT: my-project
+  NIGHTVISION_AUTH: javaspringvulny-api
+
 jobs:
-  test:
-    permissions:
-      security-events: write
+  scan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
-      - name: (1) Clone Code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      
-      - name: (2) Install NightVision
-        run: |
-            wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz; sudo mv nightvision /usr/local/bin/
+      - name: Check out the code
+        uses: actions/checkout@v5
 
-      # Extract the spec to a local file and assert it is non-empty. The '|| true' mask
-      # and the backup-spec fallback are dropped so a real API Discovery regression turns
-      # the run red instead of silently scanning with a stale spec. (NV-4462.)
-      - name: (3) Extract API documentation from code
+      - name: Install the NightVision CLI
         run: |
-          nightvision swagger extract ./ --lang spring -o openapi-spec.yml --no-upload
-          test -s openapi-spec.yml
+          curl -L https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -q | tar -xz
+          sudo mv nightvision /usr/local/bin/
 
-      # Spring Boot + Postgres cold start (after the Gradle image build) routinely
-      # exceeds a fixed sleep, and compose's depends_on waits only for container start,
-      # not for the app to accept connections. Poll until it responds (any HTTP status
-      # means it is listening) instead of sleeping a flat 10s; on timeout, dump logs and
-      # fail loudly rather than letting the scan flake later. --retry-max-time caps the
-      # whole loop (~150s) so a listening-but-hung port fails fast instead of burning
-      # --max-time on every one of --retry attempts. (NV-4462.)
-      - name: (4) Start the app and wait until it is ready
+      - name: Extract the API specification from the code
+        run: nightvision openapi extract . --target "$NIGHTVISION_TARGET" --project "$NIGHTVISION_PROJECT" --lang java
+
+      - name: Start the application
         run: |
           docker compose up -d
-          if ! curl -sk --retry 60 --retry-delay 2 --retry-max-time 150 --retry-all-errors --max-time 5 -o /dev/null https://127.0.0.1:9000/; then
-            echo "App did not become ready in time; recent compose logs:"
-            docker compose logs --no-color --tail 200
-            exit 1
-          fi
+          curl --retry 30 --retry-all-errors --retry-delay 2 --fail -k -s -o /dev/null https://localhost:9000
 
-      - name: (5) Scan the API
+      - name: Scan the API
         run: |
-          # stdout is redirected to scan-results.txt (its first line feeds the export
-          # below), which also swallows any scan error. Print the captured output and
-          # fail explicitly so a scan failure is diagnosable instead of opaque. (NV-4462.)
-          if ! nightvision scan ${NIGHTVISION_TARGET} --auth ${NIGHTVISION_AUTH} > scan-results.txt; then
-            echo "nightvision scan failed; captured output:"
-            cat scan-results.txt
-            exit 1
-          fi
-          nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
+          nightvision scan "$NIGHTVISION_TARGET" --project "$NIGHTVISION_PROJECT" --auth "$NIGHTVISION_AUTH" > scan-results.txt
+          nightvision export sarif -s "$(head -n 1 scan-results.txt)" --openapi-file openapi-spec.yml
 
-      - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
-        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
-        if: success()
+      - name: Upload the findings to GitHub code scanning
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
-
-      # Post a one-line scan summary to a Slack Incoming Webhook. Runs on both success
-      # and failure (always()), skipped when SLACK_WEBHOOK_URL is not set. Best-effort:
-      # a webhook POST failure prints a warning but does not fail the run (the scan and
-      # SARIF upload have already succeeded). jq builds the JSON payload so the message
-      # text is escaped safely.
-      - name: (7) Post scan summary to Slack
-        if: ${{ always() && env.SLACK_WEBHOOK_URL != '' }}
-        run: |
-          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          if [ "${{ job.status }}" = "success" ] && [ -f results.sarif ]; then
-            total=$(jq '[.runs[].results[]] | length' results.sarif)
-            crit=$(jq '[.runs[].results[] | select(.properties["nightvision-risk"] == "CRITICAL")] | length' results.sarif)
-            high=$(jq '[.runs[].results[] | select(.properties["nightvision-risk"] == "HIGH")] | length' results.sarif)
-            findings_url="${{ github.server_url }}/${{ github.repository }}/security/code-scanning"
-            text="NightVision scan of ${NIGHTVISION_TARGET} in ${{ github.repository }} succeeded: ${total} findings (${crit} critical, ${high} high). <${findings_url}|Findings> | <${run_url}|Run>"
-          else
-            text="NightVision scan of ${NIGHTVISION_TARGET} in ${{ github.repository }} did not complete (status ${{ job.status }}). <${run_url}|Run>"
-          fi
-          curl -sSf -X POST -H 'Content-type: application/json' \
-            --data "$(jq -n --arg t "$text" '{text: $t, unfurl_links: false, unfurl_media: false}')" \
-            "$SLACK_WEBHOOK_URL" \
-            || echo "::warning::Slack notification failed; continuing (scan result unaffected)."
